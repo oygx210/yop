@@ -28,6 +28,9 @@ user_constraints = {c0, c1, c2, c3, c4};
 % copy->decompose->parameterize->evaluate
 % Behöver kopiera allt utom variabler
 
+% copy_upto(obj, {nodes})
+%  if node == nodes{k}; break
+
 objective = J.copy_structure;
 
 [t0_list, t_list, tf_list, integral_list] = yop.node.sort(objective, ...
