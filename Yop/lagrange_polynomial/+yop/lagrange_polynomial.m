@@ -71,7 +71,6 @@ classdef lagrange_polynomial < handle & matlab.mixin.Copyable
     % -- Details --
     %    For details, see:
     %    https://en.wikipedia.org/wiki/Lagrange_polynomial
-    %
     
     properties
         timepoint  % Sample timepoints

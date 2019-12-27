@@ -2,17 +2,12 @@ classdef variable < yop.node
     
     methods
         
-        function obj = variable(name, size)
+        function obj = variable(name, varargin)
             if nargin == 0
                 name = yop.keywords().default_name_variable;
-                size = [1, 1];
-                
-            elseif nargin == 1
-                size = [1, 1];
-                
             end
-            obj@yop.node(name, size);
-            obj.value = yop.variable.symbol(name, size);
+            obj@yop.node(name, varargin{:});
+            obj.value = yop.variable.symbol(name, size(obj));
         end
         
         function indices = get_indices(obj)
@@ -37,15 +32,6 @@ classdef variable < yop.node
                 
             elseif yop.options.get_symbolics == yop.options.name_casadi
                 v = casadi.MX.sym(name, size(1), size(2));
-%                 v = [];
-%                 for r=1:size(1)
-%                    r_k = [];
-%                    for c=1:size(2)
-% %                        r_k = [r_k, sym([name '_' num2str(r) '_' num2str(c)], 'real')];
-%                        r_k = [r_k, casadi.MX.sym([name '_(' num2str(r) ',' num2str(c) ')'])];
-%                    end
-%                    v = [v; r_k];
-%                 end
                 
             end
         end

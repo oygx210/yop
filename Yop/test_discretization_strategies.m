@@ -3,8 +3,8 @@ yop.debug(true);
 % yop.options.set_symbolics('symbolic math');
 yop.options.set_symbolics('casadi');
 
-t_0 = yop.parameter('t0');
-t_f = yop.parameter('tf');
+t0 = yop.parameter('t0');
+tf = yop.parameter('tf');
 t = yop.variable('t');
 x = yop.variable('x', [2,1]);
 u = yop.variable('u');
@@ -21,7 +21,7 @@ d_u = 0;
 %%
 clear state control
 
-h = (t_f.evaluate-t_0.evaluate)/K;
+h = (tf.evaluate-t0.evaluate)/K;
 
 w_x = [];
 state(K+1) = yop.collocation_polynomial();
@@ -31,7 +31,7 @@ for k=1:K
     w_x = [w_x; x_k(:)];
 end
 x_k = casadi.MX.sym(['x_' num2str(K+1)], size(x,1), 1);
-state(K+1).init(points, 0, x_k, [t_f, t_f]);
+state(K+1).init(points, 0, x_k, [tf, tf]);
 w_x = [w_x; x_k(:)];
 
 
@@ -101,7 +101,7 @@ ub_t0 = 0;
 lb_tf = 1;
 ub_tf = 1;
 
-w = [t_0.evaluate; t_f.evaluate; w_x; w_u];
+w = [t0.evaluate; tf.evaluate; w_x; w_u];
 w_lb = [lb_t0; lb_tf; lb_x; lb_u];
 w_ub = [ub_t0; ub_tf; ub_x; ub_u];
 
@@ -127,8 +127,8 @@ for k=1:K
         t_x = [t_x, t_k + h*tau(r)];
     end
 end
-t_x = [t_x, t_f.evaluate];
-t_xfun = casadi.Function('t', {t_0.evaluate, t_f.evaluate}, {t_x});
+t_x = [t_x, tf.evaluate];
+t_xfun = casadi.Function('t', {t0.evaluate, tf.evaluate}, {t_x});
 
 t_u = [];
 for k=1:K
@@ -137,8 +137,8 @@ for k=1:K
         t_u = [t_u, t_k + h*tau_u(r)];
     end
 end
-t_u = [t_u, t_f.evaluate];
-t_ufun = casadi.Function('t', {t_0.evaluate, t_f.evaluate}, {t_u});
+t_u = [t_u, tf.evaluate];
+t_ufun = casadi.Function('t', {t0.evaluate, tf.evaluate}, {t_u});
 
 x_fun = casadi.Function('x', {w}, {w_x});
 u_fun = casadi.Function('u', {w}, {w_u});

@@ -11,6 +11,7 @@ classdef keywords < handle
     methods
         
         function obj = keywords()
+            assert(false)
             % Ska påminna om options beträffande att spara etc.
             persistent singleton
             if isempty(singleton)

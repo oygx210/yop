@@ -1,18 +1,10 @@
-classdef constant < yop.node
-    
+classdef constant < yop.node    
     methods
-        
-        function obj = constant(name, size)
+        function obj = constant(name, varargin)
             if nargin == 0
-                name = yop.keywords().default_name_constant;
-                size = [1, 1];
-                
-            elseif nargin == 1
-                size = [1, 1];
-                
+                name = yop.default().constant_name;
             end
-            obj@yop.node(name, size);
+            obj@yop.node(name, varargin{:});
         end
-        
     end
 end

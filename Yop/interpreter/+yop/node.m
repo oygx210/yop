@@ -1,8 +1,185 @@
 classdef node < handle & matlab.mixin.Copyable
+    % NODE A class for creating nodes in computational graphs.
+    %    Node is the basic building block for creating computaional graphs
+    %    in Yop. The computional graphs are used for formulating
+    %    optimization problems and manipulating them into a form that can
+    %    be handled by optimization solvers. Three classes are used to
+    %    formulate expressions: 'yop.variable', 'yop.parameter' and 
+    %    'yop.constant'. By operator overloading, normal Matlab operations 
+    %    are used in to writh expressions, which when evaluated form a 
+    %    computational graph that Yop can interpret. The implementation is
+    %    inspired by how computational graphs can be used to calculate
+    %    derivatives. Evaluation is carried out in forward mode, but no
+    %    derivatives are calculated. Instead, that is handled by the
+    %    symbolic framework used by Yop.
+    %
+    % -- Properties --
+    %    name : Name of the node.
+    %
+    %    operation : Operation associated with node.
+    %    
+    %    timepoint : Timepoint associated with node.
+    %
+    % -- Properties (SetObservable, AbortSet) --
+    %    value : Value of node when evaluated. Listens to changes in
+    %            underlying computational graph. If changes are made in the
+    %            rest of the graph causing a need to recompute, the value
+    %            is deleted. Otherwise, the node gives back the stored
+    %            value in order to avoid recomputation.
+    %
+    % -- Properties (SetAccess=protected) --
+    %    rows : The number of rows.
+    %
+    %    columns : The number of columns.
+    %
+    %    parents : Parents of the node. I.e. node taking it as input.
+    %              Protected because it has an associated listener, used to
+    %              avoid reevaluation of the graph.
+    %
+    %    children : Children of the node. I.e. input nodes.
+    %
+    % -- Properties (SetAccess=private, GetAccess=private) --
+    %    eval_order : Order in which the rest of the nodes in the graph
+    %                 needs to be computed in order to evaluate this node.
+    %
+    % -- Methods --
+    %    obj = node(name, varargin) : Class constructor.
+    %
+    %    p = parent(obj, index) : Returns parent with index 'index'.
+    %
+    %    c = child(obj, index) : Returns child with index 'index'.
+    %
+    %    obj = add_parent(obj, parent) : Add 'parent' to parent list.
+    %
+    %    obj = remove_parent(obj, parent) : Remove parent from list.
+    %
+    %    obj = add_child(obj, child) : Add 'child' to child list.
+    %
+    %    obj = remove_child(obj, child) : Remove from child list.
+    %
+    %    obj = clear(obj, ~, ~) : Clear the node value.
+    %
+    %    obj = set_value(obj, value) : Set the node value.
+    %
+    %    obj = forward(obj) : Forward evaluation.
+    %
+    %    bool = isa_leaf(obj) : Tests if node is a leaf.
+    %
+    %    bool = isa_valid_relation(obj) : Tests if relations in the node
+    %                                     follow allowed syntax.
+    %
+    %    bool = isa_symbol(obj) : Tests if node is a 'yop.variable' or an
+    %                             element of such a variable.
+    %
+    %    l = left(obj) : First child of node.
+    %
+    %    r = right(obj) : Second child of node.
+    %
+    %    l = leftmost(obj) : Leftmost child in the graph.
+    %
+    %    r = rightmost(obj) : Rightmost child in the graph.
+    %
+    % -- Methods (Default changing behavior) --
+    %    s = size(obj, dim) : Size of node when evaluated.
+    %    
+    %    l = length(obj) : length of node when evaluated.
+    %    
+    %    ind = end(obj,k,n) : Last element of indexation.
+    %
+    %    n = numArgumentsFromSubscript(obj, s, indexingContext) : Number of
+    %                     object array elements used in indexing operation.
+    %    
+    %    y = subsref(x, s) : Behavs like normal subsref except for
+    %                        subreferencing elements or specifying
+    %                        timepoints for constraints.
+    %
+    %    z = subsasgn(x, s, y) : When assigning to subelements creates a
+    %                            node, otherwist like builtin.
+    %
+    %    y = horzcat(varargin) : Horizontal concatenation.
+    %
+    %    y = vertcat(varargin) : Vertical concatenation.
+    %
+    % -- Methods (Computational graph specific) --
+    %    obj = order_nodes(obj) : Orders nodes in graph for forward
+    %                             evaluation.
+    %
+    %    [depth, nodes] = graph_size(obj) : Calculates graph depth and the
+    %                                       number of nodes.
+    %
+    %     value = evaluate(obj) : Evaluate the computaional graph
+    %                             associated with the node.
+    %
+    % -- Methods (Operator overloading) --
+    %    z = plus(x, y) : x + y.
+    %
+    %    z = minus(x, y) : x - y.
+    %
+    %    y = uplus(x) : +x.
+    %
+    %    y = uminus(x) : -x.
+    %
+    %    z = times(x, y) : x.*y.
+    %
+    %    z = mtimes(x, y) : x*y.
+    %
+    %    z = rdivide(x, y) : x./y.
+    %
+    %    z = ldivide(x, y) : x.\y.
+    %
+    %    z = mrdivide(x, y) : x/y.
+    %
+    %    z = mldivide(x, y) : x\y.
+    %
+    %    z = power(x, y) : x.^y.
+    %
+    %    z = mpower(x, y) : x^y.
+    %
+    %    y = exp(x) : Exponential.
+    %
+    %    y = expm(x) : Matrix exponential.
+    %
+    %    y = ctranspose(x) : Complex conjugate transpose x'.
+    %
+    %    y = transpose(x) : Transpose x.'.
+    %
+    %    y = sign(x) : Sign of x.
+    %
+    %    z = dot(x, y) : Dot product of x and y.
+    %
+    %    y = integral(x) : Integral of x.
+    %
+    %    y = integrate(x) : Wrapper for 'integral()'.
+    %
+    %    y = der(x) : Timederivative of x.
+    %
+    %    y = alg(x) : Indication of algebraic equation.
+    %
+    %    r = lt(lhs, rhs) : lhs < rhs.
+    %
+    %    r = gt(lhs, rhs) : lhs > rhs.
+    %
+    %    r = le(lhs, rhs) : lhs <= rhs.
+    %
+    %    r = ge(lhs, rhs) : lhs >= rhs.
+    %
+    %    r = ne(lhs, rhs) : lhs ~= rhs.
+    %
+    %    r = eq(lhs, rhs) : lhs == rhs.
+    %
+    %    r = reshape(A, varargin) : Reshape.
+    %
+    % -- Methods (Static) --
+    %    v = typecast(v) : Typecast numerics into 'yop.constant'.
+    %
+    %    bool = compatible(x, y) : Check if x and y and Matlab 2D
+    %                              compatible.
+    %
     
     properties
         name % Name of the node.
         operation % operation possibly associated with node.
+        timepoint
     end
     
     properties (SetObservable, AbortSet)
@@ -22,66 +199,111 @@ classdef node < handle & matlab.mixin.Copyable
     
     methods
         
-        function obj = node(name, size)
+        function obj = node(name, varargin)
+            % YOP.NODE - creates a node
+            % obj = yop.node(name)
+            % obj = yop.node(name, size)
+            % obj = yop.node(name, rows)
+            % obj = yop.node(name, rows, columns)
+            
             if nargin == 1
-                size = [1, 1];
+                rows = yop.default().node_rows;
+                columns = yop.default().node_columns;
+                
+            elseif nargin == 2
+                if isequal(size(varargin{1}), [1,2])
+                    rows = varargin{1}(1);
+                    columns = varargin{1}(2);
+                    
+                else
+                    rows = varargin{1};
+                    columns = yop.default().node_columns;
+                    
+                end
+                
+            elseif nargin == 3
+                rows = varargin{1};
+                columns = varargin{2};
+                
+                
+            else
+                yop.assert(false);
+                
             end
+            
             obj.name = name;
-            obj.rows = size(1);
-            obj.columns = size(2);
+            obj.rows = rows;
+            obj.columns = columns;
             obj.parents = yop.node_listener_list();
-            obj.children = yop.list();            
+            obj.children = yop.list();
         end
         
         function p = parent(obj, index)
+            % PARENT Get parent at position 'index' in the parent list.
             p = obj.parents.object(index);
         end
         
         function c = child(obj, index)
+            % CHILD Get child at postion 'index' in the child list.
             c = obj.children.object(index);
         end
         
         function obj = add_parent(obj, parent)
+            % ADD_PARENT Add parent to the parent list.
+            %    Uses a special type of list to also manage a listener that
+            %    monitors the value property. If The value is changed to a
+            %    different value, it clears the values of its parents. This
+            %    is used to avoid recomputation, as only parts of a graph
+            %    that are affected by a change of a certain input value
+            %    needs to be recomputed.
             listener = addlistener(obj, 'value', 'PostSet', @parent.clear);
             obj.parents.add(parent, listener);
             parent.value = [];
         end
         
         function obj = remove_parent(obj, parent)
+            % REMOVE_PARENT Remove a parent from the parent list.
             obj.parents.remove(parent);
         end
         
         function obj = add_child(obj, child)
+            % ADD_CHILD Add a child to the child list.
             obj.children.add(child);
         end
         
         function obj = remove_child(obj, child)
+            % REMOVE_CHILD Remove a child from the child list.
             obj.children.remove(child);
         end
         
         function obj = clear(obj, ~, ~)
+            % CLEAR Clear the value property. 
+            %    Empty args required by callback interface.
             if isvalid(obj)
                 obj.value = [];
             end
         end
         
         function obj = set_value(obj, value)
+            % SET_VALUE Set the value property.
             obj.value = value;
         end
         
         function obj = forward(obj)
+            % FORWARD Forward evaluation of node.
+            %    Needs to be overloaded in classes that are used for 
+            %    operations.
         end
         
         function bool = isa_leaf(obj)
+            % ISA_LEAF Tests if node is a leaf.
             bool = isa(obj, 'yop.variable') || isa(obj, 'yop.constant');
         end
         
-%         function bool = isa_root(obj)
-%             bool = obj.parents.length == 0;
-%         end
-        
         function bool = isa_valid_relation(obj)
-            % tests for the following structure where r is a relation and e
+            % ISA_VALID_RELATION Test if relations are input in an
+            %                    acceptable way.
+            % Tests for the following structure where r is a relation and e
             % is an expression, e.g. e1 <= e2 <= ... <= eN
             %         r
             %        / \
@@ -90,6 +312,8 @@ classdef node < handle & matlab.mixin.Copyable
             %     r   e
             %    /\
             %   e  e
+            % This is not valid: e1 <= (e2 <= e3) as the 'direction' is the
+            % opposite.
             if isa(obj, 'yop.relation') && ...
                     ~isa(obj.left, 'yop.relation') && ...
                     ~isa(obj.right, 'yop.relation')
@@ -109,6 +333,8 @@ classdef node < handle & matlab.mixin.Copyable
         end
         
         function bool = isa_symbol(obj)
+            % ISA_SYMBOL Test if the node is a 'yop.variable',
+            %    'yop.parameter' or an element of one.
             if isa(obj, 'yop.variable')
                 bool = true;
                 
@@ -124,22 +350,26 @@ classdef node < handle & matlab.mixin.Copyable
         end
         
         function l = left(obj)
+            % LEFT First child of node.
             l = obj.child(1);
         end
         
-        function l = right(obj)
-            l = obj.child(2);
+        function r = right(obj)
+            % RIGHT Second child of node.
+            r = obj.child(2);
         end
         
-        function r = leftmost(obj)
+        function l = leftmost(obj)
+            % LEFTMOST Leftmost child in graph.
             if isa_symbol(obj)
-                r = obj;
+                l = obj;
             else
-                r = obj.left.leftmost();
+                l = obj.left.leftmost();
             end
         end
         
         function r = rightmost(obj)
+            % RIGHTMOST Righmost child in graph.
             if isa_symbol(obj)
                 r = obj;
             else
@@ -154,6 +384,7 @@ classdef node < handle & matlab.mixin.Copyable
     methods % Default changing behavior
         
         function s = size(obj, dim)
+            % SIZE Size of node when graph is evaluated.
             if nargin == 2
                 if dim == 1
                     s = obj.rows;
@@ -168,10 +399,12 @@ classdef node < handle & matlab.mixin.Copyable
         end
         
         function l = length(obj)
+            % LENGTH Length of node when graph is evaluated.
             l = max(size(obj));
         end
         
         function ind = end(obj,k,n)
+            % END Last element in indexation.
             szd = size(obj);
             if k < n
                 ind = szd(k);
@@ -180,31 +413,109 @@ classdef node < handle & matlab.mixin.Copyable
             end
         end
         
-        function y = subsref(x, s)
-            if s(1).type == "()" && (isnumeric(s(1).subs{1}) || strcmp(s(1).subs{1},':'))
-                tmp = ones(size(x));
-                tmp = tmp(builtin('subsref', tmp, s));
-                
-                txt = [x.name '(' num2str(s(1).subs{1}) ')'];
-                y = yop.subs_operation(txt, size(tmp), @subsref);
-                
-                s_yop = yop.constant('s', [1, 1]);
-                s_yop.value = s(1);
-                
-                y.add_child(x);
-                y.add_child(s_yop);
-                x.add_parent(y);
-                s_yop.add_parent(y);
-                
-                if length(s) > 1
-                    y = subsref(y, s(2:end));
-                end
-            else
-                y = builtin('subsref', x, s);
-            end
+        
+        function n = numArgumentsFromSubscript(obj, s, indexingContext)
+            % NUMARGUMENTSFROMSUBSCRIPT
+            % Numbers of object array elements used in a subs operation.
+            % Somewhat rudimentary implemented. Might be buggy, not checked 
+            % for all cases.
+            n=1;            
         end
         
+        function y = subsref(x, s)
+            % SUBSREF Used to add functionality for specifying timepoints
+            % using the syntax x(t==0), and accessing subelements of
+            % matrix. Otherwise behaves like builtin.
+            %
+            % Specialfall
+            %   - element i matris
+            %   - tidpunkt eller index
+            
+            % x(1) + 2
+            % x(t==0)
+            % x(1).add(2) två anrop, x(1), add(2)
+            % x(1).evaluate
+            
+            switch s(1).type
+                case '.'
+                    y = builtin('subsref', x, s);
+                    
+                case '()'
+                    if isnumeric(s(1).subs{1}) || strcmp(s(1).subs{1}, ':')
+                        % Implement obj(indices)
+                        
+                        tmp = ones(size(x));
+                        tmp = tmp(builtin('subsref', tmp, s(1)));
+                        
+                        txt = [x.name '(' num2str(s(1).subs{1}) ')'];
+                        y = yop.subs_operation(txt, size(tmp), @subsref);
+                        
+                        s_yop = yop.constant('s', [1, 1]);
+                        s_yop.value = s(1);
+                        
+                        y.add_child(x);
+                        y.add_child(s_yop);
+                        x.add_parent(y);
+                        s_yop.add_parent(y);
+                        
+                        if length(s) > 1
+                            y = subsref(y, s(2:end));
+                        end
+                        
+                    elseif isa(s(1).subs{1}, 'yop.node')
+                        % Implement obj(t), obj(t==1), obj(1==t)
+                        x.timepoint = s(1).subs{1};
+                        y = x;
+                        
+                        if length(s) > 1
+                            y = subsref(y, s(2:end));
+                        end
+                        
+                    else
+                        % Use built-in for any other expression
+                        y = builtin('subsref', x, s);
+                    end
+                    
+                case '{}'
+                    y = builtin('subsref', x, s);
+                    
+                otherwise
+                    error('Not a valid indexing expression')
+            end
+            
+            % Ta hand om nästa nivå.
+            % Om det finns rest ska enbart det första i varargout ges som
+            % input. Om ingen rest finns ska allt returneras.
+        end
+        
+        
+        %         function y = subsref(x, s)
+        %             if s(1).type == "()" && (isnumeric(s(1).subs{1}) || strcmp(s(1).subs{1},':'))
+        %                 tmp = ones(size(x));
+        %                 tmp = tmp(builtin('subsref', tmp, s));
+        %
+        %                 txt = [x.name '(' num2str(s(1).subs{1}) ')'];
+        %                 y = yop.subs_operation(txt, size(tmp), @subsref);
+        %
+        %                 s_yop = yop.constant('s', [1, 1]);
+        %                 s_yop.value = s(1);
+        %
+        %                 y.add_child(x);
+        %                 y.add_child(s_yop);
+        %                 x.add_parent(y);
+        %                 s_yop.add_parent(y);
+        %
+        %                 if length(s) > 1
+        %                     y = subsref(y, s(2:end));
+        %                 end
+        %             else
+        %                 y = builtin('subsref', x, s);
+        %             end
+        %         end
+        
         function z = subsasgn(x, s, y)
+            % SUBSASGN Assign to subelement. Overloaded when assigning to
+            % matrices.
             if s(1).type == "()" && isnumeric(s(1).subs{1})
                 y = yop.node.typecast(y);
                 
@@ -225,6 +536,7 @@ classdef node < handle & matlab.mixin.Copyable
         end
         
         function y = horzcat(varargin)
+            % HORZCAT Horizontal concatenation.
             args = varargin(~cellfun('isempty', varargin));
             args = cellfun(@yop.node.typecast, args, 'UniformOutput', false);
             
@@ -243,6 +555,7 @@ classdef node < handle & matlab.mixin.Copyable
         end
         
         function y = vertcat(varargin)
+            % VERTCAT Vertical concatenation.
             args = varargin(~cellfun('isempty', varargin));
             args = cellfun(@yop.node.typecast, args, 'UniformOutput', false);
             
@@ -265,6 +578,7 @@ classdef node < handle & matlab.mixin.Copyable
     methods % Computational graph
         
         function obj = order_nodes(obj)
+            % ORDER_NODES Order nodes for forward evaluation.
             visited = yop.list();
             ordering = yop.list();
             
@@ -284,7 +598,9 @@ classdef node < handle & matlab.mixin.Copyable
             obj.eval_order = ordering;
         end
         
-        function [depth, nodes] = graph_size(obj)            
+        function [depth, nodes] = graph_size(obj)
+            % GRAPH_SIZE Compute the depth and number of nodes of the
+            % graph.
             visited = yop.list;
             function d = recursion(node)
                 d = 1;
@@ -303,6 +619,7 @@ classdef node < handle & matlab.mixin.Copyable
         end
         
         function value = evaluate(obj)
+            % EVALUATE Evaluate graph in forward mode.
             if isempty(obj.eval_order)
                 obj.order_nodes();
             end
@@ -622,11 +939,11 @@ classdef node < handle & matlab.mixin.Copyable
         function r = lt(lhs, rhs)
             if isnumeric(lhs)
                 tmp = lhs.*ones(size(rhs));
-                lhs = yop.constant(yop.keywords().default_name_lhs, size(rhs));
+                lhs = yop.constant(yop.default().lhs_name, size(rhs));
                 lhs.value = tmp;
             elseif isnumeric(rhs)
                 tmp = rhs.*ones(size(lhs));
-                rhs = yop.constant(yop.keywords().default_name_rhs, size(lhs));
+                rhs = yop.constant(yop.default().rhs_name, size(lhs));
                 rhs.value = tmp;
             end
             
@@ -643,11 +960,11 @@ classdef node < handle & matlab.mixin.Copyable
         function r = gt(lhs, rhs)
             if isnumeric(lhs)
                 tmp = lhs.*ones(size(rhs));
-                lhs = yop.constant(yop.keywords().default_name_lhs, size(rhs));
+                lhs = yop.constant(yop.default().lhs_name, size(rhs));
                 lhs.value = tmp;
             elseif isnumeric(rhs)
                 tmp = rhs.*ones(size(lhs));
-                rhs = yop.constant(yop.keywords().default_name_rhs, size(lhs));
+                rhs = yop.constant(yop.default().rhs_name, size(lhs));
                 rhs.value = tmp;
             end
             
@@ -664,11 +981,11 @@ classdef node < handle & matlab.mixin.Copyable
         function r = le(lhs, rhs)
             if isnumeric(lhs)
                 tmp = lhs.*ones(size(rhs));
-                lhs = yop.constant(yop.keywords().default_name_lhs, size(rhs));
+                lhs = yop.constant(yop.default().lhs_name, size(rhs));
                 lhs.value = tmp;
             elseif isnumeric(rhs)
                 tmp = rhs.*ones(size(lhs));
-                rhs = yop.constant(yop.keywords().default_name_rhs, size(lhs));
+                rhs = yop.constant(yop.default().rhs_name, size(lhs));
                 rhs.value = tmp;
             end
             
@@ -685,11 +1002,11 @@ classdef node < handle & matlab.mixin.Copyable
         function r = ge(lhs, rhs)
             if isnumeric(lhs)
                 tmp = lhs.*ones(size(rhs));
-                lhs = yop.constant(yop.keywords().default_name_lhs, size(rhs));
+                lhs = yop.constant(yop.default().lhs_name, size(rhs));
                 lhs.value = tmp;
             elseif isnumeric(rhs)
                 tmp = rhs.*ones(size(lhs));
-                rhs = yop.constant(yop.keywords().default_name_rhs, size(lhs));
+                rhs = yop.constant(yop.default().rhs_name, size(lhs));
                 rhs.value = tmp;
             end
             
@@ -706,11 +1023,11 @@ classdef node < handle & matlab.mixin.Copyable
         function r = ne(lhs, rhs)
             if isnumeric(lhs)
                 tmp = lhs.*ones(size(rhs));
-                lhs = yop.constant(yop.keywords().default_name_lhs, size(rhs));
+                lhs = yop.constant(yop.default().lhs_name, size(rhs));
                 lhs.value = tmp;
             elseif isnumeric(rhs)
                 tmp = rhs.*ones(size(lhs));
-                rhs = yop.constant(yop.keywords().default_name_rhs, size(lhs));
+                rhs = yop.constant(yop.default().rhs_name, size(lhs));
                 rhs.value = tmp;
             end
             
@@ -727,11 +1044,11 @@ classdef node < handle & matlab.mixin.Copyable
         function r = eq(lhs, rhs)
             if isnumeric(lhs)
                 tmp = lhs.*ones(size(rhs));
-                lhs = yop.constant(yop.keywords().default_name_lhs, size(rhs));
+                lhs = yop.constant(yop.default().lhs_name, size(rhs));
                 lhs.value = tmp;
             elseif isnumeric(rhs)
                 tmp = rhs.*ones(size(lhs));
-                rhs = yop.constant(yop.keywords().default_name_rhs, size(lhs));
+                rhs = yop.constant(yop.default().rhs_name, size(lhs));
                 rhs.value = tmp;
             end
             
@@ -788,7 +1105,7 @@ classdef node < handle & matlab.mixin.Copyable
                     child_k = copy_structure(obj.child(k));
                     cp_obj.add_child(child_k);
                     child_k.add_parent(cp_obj);
-                end                   
+                end
             end
         end
         
@@ -798,8 +1115,9 @@ classdef node < handle & matlab.mixin.Copyable
     methods (Static)
         
         function v = typecast(v)
+            % TYPECAST Cast matlab numerics to 'yop.constant'.
             if ~isa(v, 'yop.node')
-                v = yop.constant(yop.keywords().default_name_constant, ...
+                v = yop.constant(yop.default().constant_name, ...
                     size(v)).set_value(v);
             end
         end

@@ -1,17 +1,10 @@
 classdef parameter < yop.variable
-    
     methods
-        function obj = parameter(name, size)
+        function obj = parameter(name, varargin)
             if nargin == 0
-                name = yop.keywords().default_name_parameter;
-                size = [1, 1];
-                
-            elseif nargin == 1
-                size = [1, 1];
-                
+                name = yop.default().parameter_name;
             end
-            obj@yop.variable(name, size);
+            obj@yop.variable(name, varargin{:});
         end
     end
-    
 end
