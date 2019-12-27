@@ -189,8 +189,8 @@ classdef node < handle & matlab.mixin.Copyable
     properties (SetAccess=protected)
         rows    % Number of rows.
         columns % Number of columns.
-        parents  % Parent nodes. Is proteced beacuse it needs a listener.
-        children   % Child nodes.
+        parents  % Parent nodes. Is proteced beacuse it uses a listener.
+        children % Child nodes.
     end
     
     properties (SetAccess=private, GetAccess=private)
@@ -627,6 +627,10 @@ classdef node < handle & matlab.mixin.Copyable
                 obj.eval_order.object(k).forward();
             end
             value = obj.value;
+        end
+        
+        function obj = at(obj, timepoint)
+            obj.timepoint = timepoint;
         end
     end
     

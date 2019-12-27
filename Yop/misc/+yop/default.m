@@ -1,13 +1,19 @@
 classdef default < handle
     properties
+        node_rows
+        node_columns
         variable
         constant_name
         variable_name
+        independent_name
+        independent_initial_name
+        independent_final_name
+        state_name
+        algebraic_name
+        control_name
         parameter_name
         lhs_name
         rhs_name
-        node_rows
-        node_columns
     end
     methods
         
@@ -22,14 +28,20 @@ classdef default < handle
         end
         
         function obj = set_default(obj)
-            obj.variable = 'variable';
-            obj.constant_name = 'c';
-            obj.variable_name = 'v';
-            obj.parameter_name = 'p';
-            obj.lhs_name = 'lhs';
-            obj.rhs_name = 'rhs';
             obj.node_rows = 1;
             obj.node_columns = 1;
+            obj.variable = "variable";
+            obj.constant_name = "c";
+            obj.variable_name = "v";            
+            obj.independent_name = "t";
+            obj.independent_initial_name = "t0";
+            obj.independent_final_name = "tf";
+            obj.state_name = "state";
+            obj.algebraic_name = "algebraic";
+            obj.control_name = "control";
+            obj.parameter_name = "parameter";
+            obj.lhs_name = "lhs";
+            obj.rhs_name = "rhs";
         end
         
     end

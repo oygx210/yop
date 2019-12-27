@@ -4,14 +4,18 @@ import yop.*
 t  = yop.variable('t');
 x  = yop.variable('x', 2);
 u  = yop.variable('u');
+
 ocp = yop.optimization_problem(...
     't', t, 't0', 0, 'tf', 1, 'state', x, 'control',u);
+
 ocp.minimize( 1/2*integral( u^2 ) );
+
 ocp.subject_to( ...
     der(x)  == [x(2); u], ...
     x(t==0) == [0; 1],    ... 
     x(t==1) == [0;-1],    ...
     x(1)    <= 1/9        );
+
 sol = ocp.solve();
 
 figure(1)
