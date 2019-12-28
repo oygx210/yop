@@ -12,9 +12,9 @@ classdef optimization_problem < handle
     end
     methods
         function obj = optimization_problem(varargin)
-            % Överväg att flytta ut konstruktorn och beroende på input
-            % instansiera olika klasser beroende på vilken typ av
-            % optimeringsproblem det är.
+            % Ã–vervÃ¤g att flytta ut konstruktorn och beroende pÃ¥ input
+            % instansiera olika klasser beroende pÃ¥ vilken typ av
+            % optimeringsproblem det Ã¤r.
             ip = inputParser;
             ip.FunctionName = 'optimization_problem';
             ip.PartialMatching = false;

@@ -9,7 +9,8 @@ t  = yop.variable('t');
 x  = yop.variable('x', 2);
 u  = yop.variable('u');
 
-ocp = yop.optimization_problem('t', t, 't0', t0, 'tf', tf, 'state', x, 'control', u);
+ocp = yop.optimization_problem(...
+    't', t, 't0', t0, 'tf', tf, 'state', x, 'control', u);
 
 ocp.minimize( 1/2*integral( u^2 ) );
 
@@ -19,21 +20,6 @@ ocp.subject_to( ...
     x(t==1) == [0;-1],    ...
     x(1)    <= 1/9        );
 
-% t0 = yop.parameter('t0');
-% tf = yop.parameter('tf');
-% t  = yop.variable('t');
-% x  = yop.variable('x', 2);
-% u  = yop.variable('u');
-% 
-% J = 1/2*integral( u^2 ) + 10*x(2).at(t==0);
-% 
-% c1 = der(x)  == [x(2); u];
-% c2 = x(t==0) == [0; 1];
-% c3 = x(t==1) == [0;-1];
-% c4 = x(1)    <= 1/9;
-% 
-% user_constraints = {c1, c2, c3, c4};
-
 %%
 t0 = yop.parameter('t0');
 tf = yop.parameter('tf');
@@ -41,40 +27,24 @@ t  = yop.variable('t');
 x  = yop.variable('x', 2);
 u  = yop.variable('u');
 
+ocp = yop.optimization_problem(...
+    't', t, 't0', 0,'tf', 1, 'state', x, 'control', u);
+
 s = x(1); 
 v = x(2); 
 a = u;
 
-J = 1/2*integral( a^2 ); % + 10*v(t==0);
+ocp.minimize( 1/2*integral( a^2 ) );
 
-c1 = der(s) == v;
-c2 = der(v) == a;
-c3 = s(t==0) ==  s(t==1) == 0;
-c4 = v(t==0) == -v(t==1) == 1;
-c5 = s <= 1/9;
-
-user_constraints = {c1, c2, c3, c4, c5};
+ocp.subject_to( ...
+    der(s) == v,              ...
+    der(v) == a,              ...
+    s(t==0) ==  s(t==1) == 0, ...
+    v(t==0) == -v(t==1) == 1, ...
+    s <= 1/9                  ...
+    );
 
 %% Objective
-% Decompose into computable parts
-% hitta: t0, ti, tf, integral, integrate, differentiate, derivative
-%  de som inte faller inom kategorin ska kunna utvärderas direkt.
-% copy->decompose->parameterize->evaluate
-% Behöver kopiera allt utom variabler
-
-% copy_upto(obj, {nodes})
-%  if node == nodes{k}; break
-
-% objective = J.copy_structure;
-
-% Diffekvationer / DAE-er
-% Integraler
-% Tidpunkter
-% Tidskontinuerliga uttryck
-
-% 1. Leta efter noder som matchar integral, tidpunkt, index,
-% 2. 
-
 timepoints = yop.list();
 time_continuous = yop.list();
 integrals = yop.list();
@@ -86,7 +56,7 @@ alg = yop.list();
     @(x) isequal(x.operation, @yop.integral) ...
     );
 
-% Loopa �ver cell arrayen ist�llet och bena ut noderna.
+% Loopa över cell arrayen istället och bena ut noderna.
 constraints = yop.node_list().add_array(ocp.constraints);
 [dynamics, box_and_path] = constraints.sort("first", ...
     @yop.dynamic_optimization.dynamics, ...

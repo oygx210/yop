@@ -15,7 +15,7 @@ classdef nonlinear_program < handle
             ip.KeepUnmatched = false;
             ip.CaseSensitive = true;
             
-            ip.addParameter(yop.keywords().variable, []);
+            ip.addParameter(yop.default().nlp_variable_name, []);
             ip.parse(varargin{:})
             
             yop.assert(~isempty(ip.Results.variable), ...
@@ -23,7 +23,7 @@ classdef nonlinear_program < handle
             yop.assert(size(ip.Results.variable,2)==1, ...
                 yop.messages.optimization_not_column_vector);
             
-            obj.variable = ip.Results.(yop.keywords().variable);
+            obj.variable = ip.Results.(yop.default().nlp_variable_name);
             obj.upper_bound = yop.node('ub', size(obj.variable));
             obj.lower_bound = yop.node('lb', size(obj.variable));
             obj.upper_bound.value =  inf(size(obj.variable));

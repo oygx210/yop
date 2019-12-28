@@ -2,7 +2,7 @@ classdef default < handle
     properties
         node_rows
         node_columns
-        variable
+        nlp_variable_name
         constant_name
         variable_name
         independent_name
@@ -30,7 +30,7 @@ classdef default < handle
         function obj = set_default(obj)
             obj.node_rows = 1;
             obj.node_columns = 1;
-            obj.variable = "variable";
+            obj.nlp_variable_name = "variable";
             obj.constant_name = "c";
             obj.variable_name = "v";            
             obj.independent_name = "t";
