@@ -1,4 +1,4 @@
-classdef optimization_problem < handle
+classdef ocp < handle
     properties
         independent
         independent_initial
@@ -7,17 +7,17 @@ classdef optimization_problem < handle
         algebraic
         control
         parameter
+        function_arguments
         objective
         constraints
     end
     methods
-        function obj = optimization_problem(varargin)
-            error('Yop error: Use yop.ocp instead.');
+        function obj = ocp(varargin)
             % Överväg att flytta ut konstruktorn och beroende på input
             % instansiera olika klasser beroende på vilken typ av
             % optimeringsproblem det är.
             ip = inputParser;
-            ip.FunctionName = 'optimization_problem';
+            ip.FunctionName = 'ocp';
             ip.PartialMatching = false;
             ip.KeepUnmatched = false;
             ip.CaseSensitive = true;
@@ -39,6 +39,20 @@ classdef optimization_problem < handle
             obj.algebraic = ip.Results.(yop.default().algebraic_name);
             obj.control = ip.Results.(yop.default().control_name);
             obj.parameter = ip.Results.(yop.default().parameter_name);
+            obj.set_function_arguments();
+            
+        end
+        
+        function obj = set_function_arguments(obj)
+            % Boundaries on the independent variable are included in the
+            % parameters.
+            parameters = [ ...
+                obj.independent_initial; ...
+                obj.independent_final; ...
+                obj.parameter ...
+                ];
+            obj.function_arguments = {obj.independent, obj.state, ...
+                obj.algebraic, obj.control, parameters};
         end
         
         function obj = minimize(obj, expression)
@@ -50,6 +64,8 @@ classdef optimization_problem < handle
         end
         
         function obj = subject_to(obj, varargin)
+            % Behöver inte göras till en lista här eftersom den ändå ska
+            % sorteras och kommer som en cell array.
             obj.constraints = varargin;
         end
         
@@ -63,3 +79,25 @@ classdef optimization_problem < handle
         
     end
 end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

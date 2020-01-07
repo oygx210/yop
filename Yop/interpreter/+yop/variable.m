@@ -4,7 +4,7 @@ classdef variable < yop.node
         
         function obj = variable(name, varargin)
             if nargin == 0
-                name = yop.keywords().default_name_variable;
+                name = yop.default().variable_name;      
             end
             obj@yop.node(name, varargin{:});
             obj.value = yop.variable.symbol(name, size(obj));
@@ -31,7 +31,7 @@ classdef variable < yop.node
                 end
                 
             elseif yop.options.get_symbolics == yop.options.name_casadi
-                v = casadi.MX.sym(name, size(1), size(2));
+                v = casadi.MX.sym(char(name), size(1), size(2));
                 
             end
         end

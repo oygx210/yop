@@ -349,6 +349,10 @@ classdef node < handle & matlab.mixin.Copyable
             end
         end
         
+        function bool = is_independent(obj)
+            bool = isequal(obj, yop.independent());
+        end
+        
         function l = left(obj)
             % LEFT First child of node.
             l = obj.child(1);
@@ -433,7 +437,7 @@ classdef node < handle & matlab.mixin.Copyable
             
             % x(1) + 2
             % x(t==0)
-            % x(1).add(2) två anrop, x(1), add(2)
+            % x(1).add(2) tvÃ¥ anrop, x(1), add(2)
             % x(1).evaluate
             
             switch s(1).type
@@ -442,7 +446,7 @@ classdef node < handle & matlab.mixin.Copyable
                     
                 case '()'
                     if isnumeric(s(1).subs{1}) || strcmp(s(1).subs{1}, ':')
-                        % Implement obj(indices)
+                        % Implements obj(index)
                         
                         tmp = ones(size(x));
                         tmp = tmp(builtin('subsref', tmp, s(1)));
@@ -463,7 +467,11 @@ classdef node < handle & matlab.mixin.Copyable
                         end
                         
                     elseif isa(s(1).subs{1}, 'yop.node')
-                        % Implement obj(t), obj(t==1), obj(1==t)
+                        % Implements obj(t), obj(t==1), obj(1==t)
+                        
+                        yop.assert(s(1).subs{1}, yop.messages.timepoint_valid);
+                                                
+                                                
                         x.timepoint = s(1).subs{1};
                         y = x;
                         
@@ -483,8 +491,8 @@ classdef node < handle & matlab.mixin.Copyable
                     error('Not a valid indexing expression')
             end
             
-            % Ta hand om nästa nivå.
-            % Om det finns rest ska enbart det första i varargout ges som
+            % Ta hand om nÃ¤sta nivÃ¥.
+            % Om det finns rest ska enbart det fÃ¶rsta i varargout ges som
             % input. Om ingen rest finns ska allt returneras.
         end
         

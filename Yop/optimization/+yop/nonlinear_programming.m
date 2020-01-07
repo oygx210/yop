@@ -13,7 +13,7 @@ classdef nonlinear_programming < yop.relation
             % constraints.
             [box, nl_con] = constraints.split.sort("first", ...
                 @yop.nonlinear_programming.isa_box, ...
-                @isa_valid_relation ...
+                @(x) isa_valid_relation(x) && ~yop.dynamic_optimization.dynamics(x) ...
                 );
             
             % Put the nonlinear constraints on first general form i.e.
@@ -138,7 +138,7 @@ classdef nonlinear_programming < yop.relation
         end
         
         function indices = get_indices(relation)
-            % Follows the impletementation in yop.subs_operation
+            % Follows the implementation in yop.subs_operation
             if yop.nonlinear_programming.isa_type1(relation)
                 indices = relation.left.get_indices();
                 

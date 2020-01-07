@@ -186,7 +186,7 @@ classdef lagrange_polynomial < handle & matlab.mixin.Copyable
             %    t   : Vector with the timepoints the polynomial should be
             %           evaluated at.
             %
-            % -- Examples --
+                % -- Examples --
             %    lp.evaluate(1);
             %    lp.evaluate(0:0.1:1);
             %    evaluate(lp, 2);

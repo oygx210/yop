@@ -20,6 +20,7 @@ classdef nonlinear_program < handle
             
             yop.assert(~isempty(ip.Results.variable), ...
                 yop.messages.optimization_variable_missing);
+            
             yop.assert(size(ip.Results.variable,2)==1, ...
                 yop.messages.optimization_not_column_vector);
             

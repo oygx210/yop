@@ -24,6 +24,7 @@ dm = -F;
 dxdt = [dv;dh;dm];
 
 % Signals y
+rocket.dxdt = dxdt;
 rocket.velocity = v;
 rocket.height = h;
 rocket.mass = m;

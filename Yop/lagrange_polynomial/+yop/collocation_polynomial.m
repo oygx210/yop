@@ -129,18 +129,18 @@ classdef collocation_polynomial < yop.lagrange_polynomial
             %    polynomial.
             %
             % -- Syntax --
-            %    obj.init(points, degree, coefficients, valid_range)
-            %    init(obj, points, degree, coefficients, valid_range)
-            %    obj = init(obj, points, degree, coefficients, valid_range)
-            %    obj = obj.init(points, degree, coefficients, valid_range)
+            %    obj.init(points, degree, values, valid_range)
+            %    init(obj, points, degree, values, valid_range)
+            %    obj = init(obj, points, degree, values, valid_range)
+            %    obj = obj.init(points, degree, values, valid_range)
             %
             % -- Arguments --
             %    obj : Handle to the collocation polynomial.
             %
             %    points : The class of the collocation points.
-            %           = 'legendre' % Selects the Legendre collocation
-            %                        %  points.
-            %           = 'radau' % Selects the Radau collocation points.
+            %           = 'legendre'  Selects the Legendre collocation
+            %                         points.
+            %           = 'radau'  Selects the Radau collocation points.
             %
             %    degree : The degree of the collocation polynomial.
             %
@@ -150,7 +150,7 @@ classdef collocation_polynomial < yop.lagrange_polynomial
             %              dimension.
             %
             %    valid_range : Two element row matrix describing the valid
-            %                   range of the polynomial: [t0, tf].
+            %                  range of the polynomial: [t0, tf].
             %
             % -- Examples --
             %    cp.init('legendre', 3, [1,2.02,6.64;1,2.88,17.12], [1,3]);
@@ -175,12 +175,14 @@ classdef collocation_polynomial < yop.lagrange_polynomial
             %    value = evaluate(obj, tau)
             %
             % -- Arguments --
-            %    obj : A handle to the polynomial.
+            %    obj : A handle to the polynomial. Can be an object array.
             %
             %    tau : Normalized time. Specified as a scalar in [0,1], or
-            %           as a row vector with timepoints in [0,1].
+            %          as a row vector with timepoints in [0,1]. 
             %
             %    value : The value/-s at the normalized time/-points.
+            %            Results when an object array is input are
+            %            concatenated horizontally.
             %
             % -- Examples --
             %    value = cp.evaluate(0)
@@ -188,7 +190,10 @@ classdef collocation_polynomial < yop.lagrange_polynomial
             %    value = cp.evaluate(0:0.1:1)
             %    value = evaluate(cp, 0.5)
             
-            value = obj.evaluate@yop.lagrange_polynomial(tau).*obj.step_factor;
+            value = [];
+            for k=1:length(obj)
+                value = [value, obj(k).evaluate@yop.lagrange_polynomial(tau).*obj(k).step_factor];
+            end
         end
         
         function polynomial = integrate(obj, constant_term)
@@ -204,10 +209,14 @@ classdef collocation_polynomial < yop.lagrange_polynomial
             %    polynomial = integrate(obj, constant_term)
             %
             % -- Arguments --
-            %    obj : A handle to the collocation polynomial.
+            %    obj : A handle to the collocation polynomial. Can be an
+            %          object array. Object arrays are returned
+            %          concatenated horizontally.
             %
             %    polynomial : A new collocation polynomial object that is
-            %                  the integration of the input.
+            %                 the integration of the input. Results when an
+            %                 object array is input are returned
+            %                 concatenated horizontally.
             %
             % -- Arguments (Optional) --
             %    constant_term : Constant of integration. Specified as a
@@ -222,8 +231,12 @@ classdef collocation_polynomial < yop.lagrange_polynomial
             if nargin == 1
                 constant_term = 0;
             end
-            polynomial = obj.integrate@yop.lagrange_polynomial(constant_term);
-            polynomial.step_factor = polynomial.step_factor * obj.h;
+            polynomial = [];
+            for k=1:length(obj)
+                pk = obj(k).integrate@yop.lagrange_polynomial(constant_term);
+                pk.step_factor = pk.step_factor * obj(k).h;
+                polynomial = [polynomial, pk];
+            end
         end
         
         function polynomial = differentiate(obj)
@@ -238,16 +251,24 @@ classdef collocation_polynomial < yop.lagrange_polynomial
             %    polynomial = differentiate(obj)
             %
             % -- Arguments --
-            %    obj : A handle to the collocation polynomial.
+            %    obj : A handle to the collocation polynomial. Can be an
+            %          object array. Object arrays are returned
+            %          concatenated horizontally.
             %
             %    polynomial : A new collocation polynomial object that is
-            %                  the differentiation of the input.
+            %                 the differentiation of the input. Results
+            %                 when an object array is input are returned
+            %                 concatenated horizontally.
             %
             % -- Examples --
             %    polynomial = obj.differentiate()
             %    polynomial = differentiate(obj)
-            polynomial = obj.differentiate@yop.lagrange_polynomial();
-            polynomial.step_factor = polynomial.step_factor / obj.h;
+            polynomial = [];
+            for k=1:length(obj)
+                pk = obj(k).differentiate@yop.lagrange_polynomial();
+                pk.step_factor = pk.step_factor / obj(k).h;
+                polynomial = [polynomial, pk];
+            end
         end
         
         function len = h(obj)
@@ -258,11 +279,16 @@ classdef collocation_polynomial < yop.lagrange_polynomial
             %    len = h(obj)
             %
             % -- Arguments --
-            %    obj : A handle to the collocation polynomial.
+            %    obj : A handle to the collocation polynomial. Or an array
+            %          of handles.
             %
-            %    len : Length of the valid range.
+            %    len : Length of the valid range. Results when an object
+            %          array is input are concatenated horizontally.
             
-            len = obj.valid_range(2) - obj.valid_range(1);
+            len = zeros(1, length(obj)-1);
+            for k=1:length(obj)
+                len(k) = obj(k).valid_range(2) - obj(k).valid_range(1);
+            end
         end
         
         function t = t0(obj)
@@ -273,11 +299,16 @@ classdef collocation_polynomial < yop.lagrange_polynomial
             %    t = t0(obj)
             %
             % -- Arguments --
-            %    obj : A handle to the collocation polynomial.
+            %    obj : A handle to the collocation polynomial. Can be an
+            %          object array.
             %
-            %    t : The value of the starting timepoint.
+            %    t : The value of the starting timepoint. Results when an
+            %        object array is input are concatenated horizontally.
             
-            t = obj.valid_range(1);
+            t = zeros(1, length(obj));
+            for k=1:length(obj)
+                t(k) = obj(k).valid_range(1);
+            end
         end
         
         function t = tf(obj)
@@ -288,11 +319,16 @@ classdef collocation_polynomial < yop.lagrange_polynomial
             %    t = tf(obj)
             %
             % -- Arguments --
-            %    obj : A handle to the collocation polynomial.
+            %    obj : A handle to the collocation polynomial. Can be an
+            %          object array.
             %
-            %    t : The value of the end timepoint.
+            %    t : The value of the end timepoint. Results when an object
+            %        array is input are concatenated horizontally.
             
-            t = obj.valid_range(2);
+            t = zeros(1, length(obj));
+            for k=1:length(obj)
+                t(k) = obj(k).valid_range(2);
+            end
         end
         
     end
@@ -307,8 +343,8 @@ classdef collocation_polynomial < yop.lagrange_polynomial
             %
             % -- Arguments --
             %    points : Class of the collocation points.
-            %           = 'legendre' % Returns the legendre points
-            %           = 'radau'    % Returns the radau points
+            %           = 'legendre'  Returns the legendre points
+            %           = 'radau'     Returns the radau points
             %
             %    degree : The degree of the collocation points.
             %           = integer in the range [0,9]. 0 makes the
