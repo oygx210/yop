@@ -6,14 +6,22 @@ t0 = yop.parameter('t0'); % end time
 tf = yop.parameter('tf'); % end time
 t = yop.variable('t'); % independent
 x = yop.variable('x', 3); % state
+z = yop.variable('z', 0);
 u = yop.variable('u'); % control
+p = yop.parameter('p', 0);
 
 [~, rocket] = rocket_model(x, u);
 
 % create an optimization problem
 ocp = yop.ocp('t', t, 't0', t0, 'tf', tf, 'state', x, 'control', u);
 
-ocp.maximize( rocket.height(tf) );
+ocp.maximize( ...
+    rocket.height(tf) - ...
+    rocket.mass(t0) - ...
+    rocket.velocity(t==0.5)^2 - ...
+    integral(rocket.fuel_mass_flow^2) + ...
+    2 ...
+    );
 
 ocp.subject_to( ...
     0 == t0 <= tf, ...
@@ -28,70 +36,224 @@ ocp.subject_to( ...
 %% Discretization
 K = 10;
 points = 'legendre';
-d_x = 3;
+d_x = 1;
 d_u = 0;
 
-%% Signals
-h = (tf-t0)/K;
-
-% State
-s_x = size(x,1);
-n_x = s_x*(d_x+1)*K + s_x;
-w_x = casadi.MX.sym('x', n_x);
-
-state(K+1) = yop.collocation_polynomial();
-for k=1:K
-    idx = ((k-1)*(d_x+1)*s_x+1):(k*(d_x+1)*s_x);
-    state(k).init(points, d_x, reshape(w_x(idx), [s_x, d_x+1]), h*[(k-1) k]);
-end
-idx = (K*(d_x+1)*s_x+1):(K*(d_x+1)*s_x+s_x);
-state(K+1).init(points, 0, w_x(idx), [tf, tf]);
-
-% Control
-s_u = size(u,1);
-n_u = s_u*(d_u+1)*K;
-w_u = casadi.MX.sym('u', n_u);
-
-control(K) = yop.collocation_polynomial();
-for k=1:K
-    idx = ((k-1)*(d_u+1)*s_u+1):(k*(d_u+1)*s_u);
-    control(k).init(points, d_u, reshape(w_u(idx), [s_u, d_u+1]), h*[(k-1) k]);
-end
-
-w = [w_x; w_u; t0.evaluate; tf.evaluate];
-w_ub = inf(size(w));
-w_lb = -inf(size(w));
+[w_x, w_z, w_u, w_p, state, algebraic, control, parameter] = yop.get_variables(x, z, u, p, t0, tf, K, points, d_x, d_u);
 
 %% Constraints classifiction
 % <=, ==, differential, box
+clear box_con
+
 [box, equality, inequality, differential] = yop.dynamic_optimization.classify(ocp.constraints{:});
 
-% Tidskontinuerlig eller tidpunkt spelar ingen roll. Uttrycken ska brytas
-% upp, diskretiseras och sedan utvärderas.
-
-%% Map box constraints
-
+box_con(length(box)) = struct();
 for k=1:length(box)
-    bd = yop.nonlinear_programming.get_bound(box.object(k));
+    c_k = box.object(k);
+    v_k = yop.nonlinear_programming.get_variable(c_k);
     
-    if yop.nonlinear_programming.isa_upper_bound(box.object(k))
-        if box.object(k).timepoint = 
+    box_con(k).constraint = c_k;
+    box_con(k).variable = v_k;
+    
+    if isempty(v_k.timepoint)
+        box_con(k).timepoint = [];
         
-    elseif yop.nonlinear_programming.isa_lower_bound(box.object(k))
+    elseif isequal(v_k.timepoint, ocp.independent_initial)
+        box_con(k).timepoint = ocp.independent_initial;
         
-    elseif yop.nonlinear_programming.isa_equality(box.object(k))
+    elseif isequal(v_k.timepoint, ocp.independent_final)
+        box_con(k).timepoint = ocp.independent_final;
+        
+    elseif isequal(v_k.timepoint.left, ocp.independent) && isa(v_k.timepoint.right, 'yop.constant')
+        % Om värdet är annat än slut eller start då ska detta bivillkor
+        % flyttas till ett path constraint.
+        box_con(k).timepoint = c_k.timepoint.right.evalute;
+        
+    elseif isa(v_k.timepoint.left, 'yop.constant') && isequal(v_k.timepoint.right, ocp.independent)
+        box_con(k).timepoint = v_k.timepoint.left.evaluate;
+        
+    elseif isequal(v_k.timepoint.left, ocp.independent) && isequal(v_k.timepoint.right, ocp.independent_initial)
+        box_con(k).timepoint = ocp.independent_initial;
+        
+    elseif isequal(v_k.timepoint.left, ocp.independent_initial) && isequal(v_k.timepoint.right, ocp.independent)
+        box_con(k).timepoint = ocp.independent_initial;
+        
+    elseif isequal(v_k.timepoint.left, ocp.independent) && isequal(v_k.timepoint.right, ocp.independent_final)
+        box_con(k).timepoint = ocp.independent_final;
+        
+    elseif isequal(v_k.timepoint.left, ocp.independent_final) && isequal(v_k.timepoint.right, ocp.independent)
+        box_con(k).timepoint = ocp.independent_final;
+        
+    end
+end
+
+w_x_ub =  inf(size(w_x));
+w_x_lb = -inf(size(w_x));
+w_z_ub =  inf(size(w_z));
+w_z_lb = -inf(size(w_z));
+w_u_ub =  inf(size(w_u));
+w_u_lb = -inf(size(w_u));
+w_p_ub =  inf(size(w_p));
+w_p_lb = -inf(size(w_p));
+
+for k=1:length(box_con)
+    keyboard
+    bd = evaluate(yop.nonlinear_programming.get_bound(box_con(k).constraint));
+    
+    % Independent initial
+    if isequal(box_con(k).variable, ocp.independent_initial)
+        
+        if yop.nonlinear_programming.isa_upper_bound(box_con(k).constraint)
+            w_p_ub(1) = bd;
+            
+        elseif yop.nonlinear_programming.isa_lower_bound(box_con(k).constraint)
+            w_p_lb(1) = bd;
+            
+        elseif yop.nonlinear_programming.isa_equality(box_con(k).constraint)
+            w_p_ub(1) = bd;
+            w_p_lb(1) = bd;
+            
+        else
+            yop.error();
+            
+        end
+    end
+    
+    % Independent final
+    if isequal(box_con(k).variable, ocp.independent_final)
+        
+        if yop.nonlinear_programming.isa_upper_bound(box_con(k).constraint)
+            w_p_ub(2) = bd;
+            
+        elseif yop.nonlinear_programming.isa_lower_bound(box_con(k).constraint)
+            w_p_lb(2) = bd;
+            
+        else
+            yop.error();
+            
+        end
+        
+    end
+    
+    % Parameter. Notera att ocp.parameter innefattar t0, tf!
+    
+    % State
+    if isequal(box_con(k).variable, ocp.state)
+        
+        if isequal(box_con(k).timepoint, ocp.independent_initial)
+            
+            if yop.nonlinear_programming.isa_upper_bound(box_con(k).constraint)
+                w_x_ub(1:ocp.states) = bd;
+                
+            elseif yop.nonlinear_programming.isa_lower_bound(box_con(k).constraint)
+                w_x_lb(1:ocp.states) = bd;
+                
+            elseif yop.nonlinear_programming.isa_equality(box_con(k).constraint)
+                w_x_ub(1:ocp.states) = bd;
+                w_x_lb(1:ocp.states) = bd;
+                
+            else
+                yop.error();
+                
+            end
+            
+            
+        elseif isequal(box_con(k).timepoint, ocp.independent_final)
+            
+            if yop.nonlinear_programming.isa_upper_bound(box_con(k).constraint)
+                w_x_ub((end-ocp.states+1):end) = bd;
+                
+            elseif yop.nonlinear_programming.isa_lower_bound(box_con(k).constraint)
+                w_x_lb((end-ocp.states+1):end) = bd;
+                
+            elseif yop.nonlinear_programming.isa_equality(box_con(k).constraint)
+                w_x_ub((end-ocp.states+1):end) = bd;
+                w_x_lb((end-ocp.states+1):end) = bd;
+                
+            else
+                yop.error();
+                
+            end
+            
+        else
+            
+            keyboard
+            if yop.nonlinear_programming.isa_upper_bound(box_con(k).constraint)
+                w_x_ub((ocp.states+1):(end-ocp.states)) = repmat(bd,K-1,1);
+                
+            elseif yop.nonlinear_programming.isa_lower_bound(box_con(k).constraint)
+                w_x_lb((ocp.states+1):(end-ocp.states)) = repmat(bd,K-1,1);
+                
+            elseif yop.nonlinear_programming.isa_equality(box_con(k).constraint)
+                w_x_ub((ocp.states+1):(end-ocp.states)) = repmat(bd,K-1,1);
+                w_x_lb((ocp.states+1):(end-ocp.states)) = repmat(bd,K-1,1);
+                
+            else
+                yop.error();
+                
+            end
+            
+        end
         
     end
     
 end
 
-% Typ
-% Vilken variabel
-% Tidsutbredning
+% Hantera initial när t==0, t0==0 och mappa det till olikhets-bivillkor.
 
 %% Objective
 
+
+J_fn = casadi.Function('J', ocp.function_arguments, {ocp.objective.evaluate});
+
+h = evaluate((tf-t0)./K);
+
+tau = yop.collocation_polynomial.collocation_points(points, d_x);
+
+objective_integrand(K) = yop.collocation_polynomial();
+for k=1:K
+    t = (k-1)*h;
+    c_k = [];
+    for r=1:d_x+1
+        t_kr = ((k-1) + tau(r))*h;
+        x_kr = state(k).evaluate(tau(r));
+        z_kr = algebraic(k).evaluate(tau(r));
+        u_kr = control(k).evaluate(tau(r));
+        c_k = [c_k, J_fn(t_kr, x_kr, z_kr, u_kr, parameter)];
+    end
+    
+    objective_integrand(k).init(points, d_x, c_k, h*[(k-1) k]);
+end
+
+objective = sum(objective_integrand.integrate.evaluate(1));
+
+objective = J_fn( ...
+    ocp.tf, ...
+    state(K+1).evaluate(0), ...
+    algebraic(K).evaluate(1), ...
+    control(K).evaluate(1), ...
+    parameter ...
+    );
+
 %% Dynamics
+ode = casadi.Function('ode', ocp.function_arguments, {rocket.dxdt.evaluate});
+alg = casadi.Function('alg', ocp.function_arguments, {[]});
+
+c_dae = [];
+for k=1:K
+    t_k = ((k-1) + tau(2:end)).*h;
+    x_k = state(k).evaluate( tau(2:end) );
+    z_k = algebraic(k).evaluate( tau(2:end) );
+    u_k = control(k).evaluate( tau(2:end) );
+    c_dae = [ ...
+        c_dae; ...
+        ode(t_k, x_k, z_k, u_k, parameter) - state(k).differentiate.evaluate( tau(2:end) ); ...
+        alg(t_k, x_k, z_k, u_k, parameter) ...
+        ];
+end
+
+% Continuity
+c_cont = state(1:K).evaluate(1) - state(2:end).evaluate(0);
 
 %% Equality - Time continuous
 
@@ -101,4 +263,23 @@ end
 
 %% Inequality - Timepoint
 
-%% Objekt som tar bivillkor och diskretiserar dem
+%% Solve
+
+w = [w_x; w_z; w_u; w_p];
+w_ub = [w_x_ub; w_z_ub; w_u_ub; w_p_ub];
+w_lb = [w_x_lb; w_z_lb; w_u_lb; w_p_lb];
+
+g = [c_dae(:); c_cont(:)];
+g_ub = ones(size(g));
+g_lb = g_ub;
+
+nlp = struct;
+nlp.x = w;
+nlp.f = objective;
+nlp.g = g;
+solver = casadi.nlpsol('yoptimizer', 'ipopt', nlp);
+solution = solver('x0', zeros(size(w)), 'lbx', w_lb, 'ubx', w_ub, 'lbg', g_lb, 'ubg', g_ub);
+
+w_opt = full(solution.x);
+
+

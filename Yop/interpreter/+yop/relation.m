@@ -87,7 +87,20 @@ classdef relation < yop.node
             end                
         end
         
+        function y = horzcat(varargin)
+            y = builtin('horzcat', varargin{:});
+        end
+        
+        function y = vertcat(varargin)
+            y = builtin('vertcat', varargin{:});
+        end
+        
+        function s = size(varargin)
+            s = builtin('size', varargin{:});
+        end
+        
     end
+    
 end
 
 

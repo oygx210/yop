@@ -196,6 +196,26 @@ classdef collocation_polynomial < yop.lagrange_polynomial
             end
         end
         
+        function values = evaluate_at(obj, time)
+            values = [];
+            for n=1:length(time)
+                for k=1:length(obj)
+                    if obj(k).is_valid_at(time(n))
+                        tau = ( time(n) - obj(k).t0 )/obj(k).h;
+                        values = [values, obj(k).evaluate(tau)];
+                        
+                    elseif k==length(obj) && obj(k).tf == time(n)                        
+                        values = [values, obj(k).evaluate(1)];
+                        
+                    end
+                end
+            end
+        end
+        
+        function bool = is_valid_at(obj, time)
+            bool = obj.t0-time <= min(eps(time), eps(obj.t0)) && obj.tf-time > 0;
+        end
+        
         function polynomial = integrate(obj, constant_term)
             % INTEGRATE Integrates the collocation polynomial.
             %    Integrates the polynomial with an optional constant term.
@@ -285,9 +305,9 @@ classdef collocation_polynomial < yop.lagrange_polynomial
             %    len : Length of the valid range. Results when an object
             %          array is input are concatenated horizontally.
             
-            len = zeros(1, length(obj)-1);
+            len = [];
             for k=1:length(obj)
-                len(k) = obj(k).valid_range(2) - obj(k).valid_range(1);
+                len = [len, obj(k).valid_range(2) - obj(k).valid_range(1)];
             end
         end
         
@@ -305,9 +325,9 @@ classdef collocation_polynomial < yop.lagrange_polynomial
             %    t : The value of the starting timepoint. Results when an
             %        object array is input are concatenated horizontally.
             
-            t = zeros(1, length(obj));
+            t = [];
             for k=1:length(obj)
-                t(k) = obj(k).valid_range(1);
+                t = [t, obj(k).valid_range(1)];
             end
         end
         
@@ -325,9 +345,9 @@ classdef collocation_polynomial < yop.lagrange_polynomial
             %    t : The value of the end timepoint. Results when an object
             %        array is input are concatenated horizontally.
             
-            t = zeros(1, length(obj));
+            t = [];
             for k=1:length(obj)
-                t(k) = obj(k).valid_range(2);
+                t = [t, obj(k).valid_range(2)];
             end
         end
         

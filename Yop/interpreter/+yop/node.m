@@ -1,6 +1,6 @@
-classdef node < handle & matlab.mixin.Copyable
+classdef node < handle
     % NODE A class for creating nodes in computational graphs.
-    %    Node is the basic building block for creating computaional graphs
+    %    Node is the basic building block for creating computaional grapwhs
     %    in Yop. The computional graphs are used for formulating
     %    optimization problems and manipulating them into a form that can
     %    be handled by optimization solvers. Three classes are used to
@@ -349,10 +349,6 @@ classdef node < handle & matlab.mixin.Copyable
             end
         end
         
-        function bool = is_independent(obj)
-            bool = isequal(obj, yop.independent());
-        end
-        
         function l = left(obj)
             % LEFT First child of node.
             l = obj.child(1);
@@ -468,11 +464,13 @@ classdef node < handle & matlab.mixin.Copyable
                         
                     elseif isa(s(1).subs{1}, 'yop.node')
                         % Implements obj(t), obj(t==1), obj(1==t)
-                        
-                        yop.assert(s(1).subs{1}, yop.messages.timepoint_valid);
-                                                
-                                                
-                        x.timepoint = s(1).subs{1};
+                                           
+                        % Logik för timepoints:
+                        % Antingen är det en:
+                        %   1. yop.parameter
+                        %   2. numeric
+                        %   3. yop.variable = yop.constant/yop.parameter
+                        x.timepoint = yop.timepoint(s(1).subs{1});
                         y = x;
                         
                         if length(s) > 1
@@ -606,7 +604,7 @@ classdef node < handle & matlab.mixin.Copyable
             obj.eval_order = ordering;
         end
         
-        function [depth, nodes] = graph_size(obj)
+        function size = graph_size(obj)
             % GRAPH_SIZE Compute the depth and number of nodes of the
             % graph.
             visited = yop.list;
@@ -624,6 +622,11 @@ classdef node < handle & matlab.mixin.Copyable
             end
             depth = recursion(obj);
             nodes = length(visited);
+            size = [depth, nodes];
+        end
+        
+        function d = depth(obj)
+            d = graph_size(obj);
         end
         
         function value = evaluate(obj)
@@ -721,6 +724,10 @@ classdef node < handle & matlab.mixin.Copyable
         end
         
         function z = mtimes(x, y)
+            % Produces the wrong size, when x is a matrix and y is a
+            % scalar. Consider introducing an if-statement or producing
+            % size based on the same mehthod as debug is made.
+            
             x = yop.node.typecast(x);
             y = yop.node.typecast(y);
             
@@ -1098,28 +1105,28 @@ classdef node < handle & matlab.mixin.Copyable
     
     methods
         
-        function cp_obj = copy_structure(obj)
-            % Copies the structure of an expression graph. It does not
-            % copies leafs, but the rest is copied. The primary purpose of
-            % this method is that the copied structure is later going to be
-            % changed, and then it would be undesirable to change the user
-            % object. But since the correct experession given by the user
-            % must be maintained leafs are not copied.
-            
-            if obj.isa_leaf() || obj.isa_symbol()
-                cp_obj = obj;
-                
-            else
-                cp_obj = copy(obj);
-                cp_obj.parents = yop.node_listener_list();
-                cp_obj.children = yop.list();
-                for k=1:obj.children.length
-                    child_k = copy_structure(obj.child(k));
-                    cp_obj.add_child(child_k);
-                    child_k.add_parent(cp_obj);
-                end
-            end
-        end
+        %         function cp_obj = copy_structure(obj)
+        %             % Copies the structure of an expression graph. It does not
+        %             % copies leafs, but the rest is copied. The primary purpose of
+        %             % this method is that the copied structure is later going to be
+        %             % changed, and then it would be undesirable to change the user
+        %             % object. But since the correct experession given by the user
+        %             % must be maintained leafs are not copied.
+        %
+        %             if obj.isa_leaf() || obj.isa_symbol()
+        %                 cp_obj = obj;
+        %
+        %             else
+        %                 cp_obj = copy(obj);
+        %                 cp_obj.parents = yop.node_listener_list();
+        %                 cp_obj.children = yop.list();
+        %                 for k=1:obj.children.length
+        %                     child_k = copy_structure(obj.child(k));
+        %                     cp_obj.add_child(child_k);
+        %                     child_k.add_parent(cp_obj);
+        %                 end
+        %             end
+        %         end
         
     end
     

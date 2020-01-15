@@ -51,6 +51,7 @@ x  = variable('x', [2, 1]);
 x1 = x(1);
 x2 = x(2);
 
+% Problem med att underliggande relationer inte är nlp_constraints.
 nlp = nonlinear_program('variable', x);
 nlp.minimize(  1 + x1/(1 + x2) - 3*x1*x2 + x2*(1 + x1)  )
 nlp.subject_to( 0 <= x1 <= 1,  0 <= x2 <= 2);

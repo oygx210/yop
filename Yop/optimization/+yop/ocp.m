@@ -1,4 +1,5 @@
 classdef ocp < handle
+    
     properties
         independent
         independent_initial
@@ -7,15 +8,25 @@ classdef ocp < handle
         algebraic
         control
         parameter
-        function_arguments
+        
+        % function calls
+        arguments
+        
+        % Objective and constraints
         objective
+        objective_function
         constraints
+        
+        % Box constraints
+        
+        % Path constraints
+        %  equality, inequality
     end
+    
     methods
+        
         function obj = ocp(varargin)
-            % Överväg att flytta ut konstruktorn och beroende på input
-            % instansiera olika klasser beroende på vilken typ av
-            % optimeringsproblem det är.
+            
             ip = inputParser;
             ip.FunctionName = 'ocp';
             ip.PartialMatching = false;
@@ -32,67 +43,91 @@ classdef ocp < handle
             
             ip.parse(varargin{:});
             
-            obj.independent = ip.Results.(yop.default().independent_name);
-            obj.independent_initial = yop.node.typecast(ip.Results.(yop.default().independent_initial_name));
-            obj.independent_final = yop.node.typecast(ip.Results.(yop.default().independent_final_name));
-            obj.state = ip.Results.(yop.default().state_name);
-            obj.algebraic = ip.Results.(yop.default().algebraic_name);
-            obj.control = ip.Results.(yop.default().control_name);
-            obj.parameter = ip.Results.(yop.default().parameter_name);
-            obj.set_function_arguments();
+            obj.independent         = ip.Results.(yop.default().independent_name);
+            obj.independent_initial = ip.Results.(yop.default().independent_initial_name);
+            obj.independent_final   = ip.Results.(yop.default().independent_final_name);
+            obj.state               = ip.Results.(yop.default().state_name);
+            obj.algebraic           = ip.Results.(yop.default().algebraic_name);
+            obj.control             = ip.Results.(yop.default().control_name);
+            parameter               = ip.Results.(yop.default().parameter_name);
+            
+            % parameters
+            if isa(obj.independent_final, 'yop.parameter')
+                parameter = [obj.independent_final; parameter];
+            end
+            
+            if isa(obj.independent_initial, 'yop.parameter')
+                parameter = [obj.independent_initial; parameter];
+            end
+            obj.parameter = parameter;
+            
+            
+            % Function input arguments.
+            % Överväg att flytta eftersom de skulle kunna hemmahöra i
+            % transkriptorn
+            arguments = {};
+            
+            if ~isempty(obj.independent)
+                arguments = [arguments(:); {obj.independent.evaluate}];
+            end
+            
+            if ~isempty(obj.state)
+                arguments = [arguments(:); {obj.state.evaluate}];
+            end
+            
+            if ~isempty(obj.algebraic)
+                arguments = [arguments(:); {obj.algebraic.evaluate}];
+            end
+            
+            if ~isempty(obj.control)
+                arguments = [arguments(:); {obj.control.evaluate}];
+            end
+            
+            if ~isempty(obj.parameter)
+                arguments = [arguments(:); {obj.parameter.evaluate}];
+            end
+            
+            obj.arguments = arguments;
             
         end
         
-        function obj = set_function_arguments(obj)
-            % Boundaries on the independent variable are included in the
-            % parameters.
-            parameters = [ ...
-                obj.independent_initial; ...
-                obj.independent_final; ...
-                obj.parameter ...
-                ];
-            obj.function_arguments = {obj.independent, obj.state, ...
-                obj.algebraic, obj.control, parameters};
-        end
-        
         function obj = minimize(obj, expression)
-            obj.objective = expression;
+            obj.objective = 'minimize';
+            obj.objective_function = expression;
         end
         
         function obj = maximize(obj, expression)
-            obj.minimize(-expression);
+            obj.objective = 'maximize';
+            obj.objective_function = -expression;
         end
         
         function obj = subject_to(obj, varargin)
-            % Behöver inte göras till en lista här eftersom den ändå ska
-            % sorteras och kommer som en cell array.
             obj.constraints = varargin;
         end
         
-        function t = tf(obj)
-            t = obj.independent_final.evaluate;
+    end
+    
+    methods
+        
+        function n_x = states(obj)
+            n_x = length(obj.state);
         end
         
-        function t = t0(obj)
-            t = obj.independent_initial.evaluate;
+        function n_z = algebraics(obj)
+            n_z = length(obj.algebraic);
+        end
+        
+        function n_c = controls(obj)
+            n_c = length(obj.control);
+        end
+        
+        function n_p = parameters(obj)
+            n_p = length(obj.parameter);
         end
         
     end
+    
 end
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

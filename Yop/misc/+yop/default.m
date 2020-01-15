@@ -14,6 +14,8 @@ classdef default < handle
         parameter_name
         lhs_name
         rhs_name
+        independent_initial_value
+        independent_final_value
     end
     methods
         
@@ -42,6 +44,8 @@ classdef default < handle
             obj.parameter_name = "parameter";
             obj.lhs_name = "lhs";
             obj.rhs_name = "rhs";
+            obj.independent_initial_value = 0;
+            obj.independent_final_value = 1;
         end
         
     end

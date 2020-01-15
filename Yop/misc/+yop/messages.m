@@ -44,8 +44,8 @@ classdef messages < handle
            msg = 'Lagrange polynomial initialization requires data to be provided as row vectors.';
        end
        
-       function msg = timepoint_valid()
-           msg = 'Timepoints have to be specified as t==1, 1==t or following the same pattern where the independent is preceded by in the independent or followed by it.';
+       function msg = invalid_timepoint()
+           msg = 'Invalid timepoint. Timepoints are either constants, parameters, or an equality relation with the independent on one side and a parameter or constant on the other side.';
        end
        
    end

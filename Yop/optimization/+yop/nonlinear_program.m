@@ -44,7 +44,12 @@ classdef nonlinear_program < handle
         end
         
         function obj = subject_to(obj, varargin)
-            [box, eq, ieq] = yop.nonlinear_programming.classify(varargin{:});
+            
+            for k=1:length(varargin)
+                varargin{k} = yop.nlp_constraint(varargin{k});
+            end
+            
+            [box, eq, ieq] = yop.nlp_constraint.classify(varargin{:});
             obj.add_box(box);
             
             if isempty(eq.elements)
@@ -62,16 +67,16 @@ classdef nonlinear_program < handle
         
         function obj = add_box(obj, box)
             for k=1:length(box)
-                index = yop.nonlinear_programming.get_indices(box.object(k));
-                bd = yop.nonlinear_programming.get_bound(box.object(k));
+                index = box.object(k).get_indices();
+                bd = box.object(k).get_bound;
                 
-                if yop.nonlinear_programming.isa_upper_bound(box.object(k))
+                if box.object(k).isa_upper_bound
                     obj.upper_bound(index) = bd;
                     
-                elseif yop.nonlinear_programming.isa_lower_bound(box.object(k))
+                elseif box.object(k).isa_lower_bound
                     obj.lower_bound(index) = bd;
                     
-                elseif yop.nonlinear_programming.isa_equality(box.object(k))    
+                elseif box.object(k).isa_equality  
                     obj.upper_bound(index) = bd;
                     obj.lower_bound(index) = bd;
                 end

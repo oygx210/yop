@@ -13,7 +13,7 @@ classdef nonlinear_programming < yop.relation
             % constraints.
             [box, nl_con] = constraints.split.sort("first", ...
                 @yop.nonlinear_programming.isa_box, ...
-                @(x) isa_valid_relation(x) && ~yop.dynamic_optimization.dynamics(x) ...
+                @(x) isa_valid_relation(x) ...
                 );
             
             % Put the nonlinear constraints on first general form i.e.
@@ -130,6 +130,19 @@ classdef nonlinear_programming < yop.relation
                 
             elseif yop.nonlinear_programming.isa_type2(relation)
                 bd = relation.left;
+                
+            else
+                yop.assert(false);
+                
+            end
+        end
+        
+        function bd = get_variable(relation)
+            if yop.nonlinear_programming.isa_type1(relation)
+                bd = relation.left;
+                
+            elseif yop.nonlinear_programming.isa_type2(relation)
+                bd = relation.right;
                 
             else
                 yop.assert(false);

@@ -1,6 +1,6 @@
 yop.debug(true);
 yop.options.set_symbolics('symbolic math');
-% yop.options.set_symbolics('casadi');
+yop.options.set_symbolics('casadi');
 
 %%
 t0 = yop.parameter('t0');
@@ -9,8 +9,7 @@ t  = yop.variable('t');
 x  = yop.variable('x', 2);
 u  = yop.variable('u');
 
-ocp = yop.optimization_problem(...
-    't', t, 't0', t0, 'tf', tf, 'state', x, 'control', u);
+ocp = yop.ocp('t', t, 't0', t0, 'tf', tf, 'state', x, 'control', u);
 
 ocp.minimize( 1/2*integral( u^2 ) );
 
@@ -27,8 +26,7 @@ t  = yop.variable('t');
 x  = yop.variable('x', 2);
 u  = yop.variable('u');
 
-ocp = yop.optimization_problem(...
-    't', t, 't0', 0,'tf', 1, 'state', x, 'control', u);
+ocp = yop.ocp('t', t, 't0', 0,'tf', 1, 'state', x, 'control', u);
 
 s = x(1); 
 v = x(2); 
