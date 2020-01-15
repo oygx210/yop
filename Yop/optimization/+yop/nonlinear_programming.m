@@ -1,5 +1,5 @@
 classdef nonlinear_programming < yop.relation
-   
+    
     methods (Static)
         
         function [box, equality, inequality] = classify(varargin)
@@ -9,7 +9,7 @@ classdef nonlinear_programming < yop.relation
             % Store all constraints in a list
             constraints = yop.node_list().add_array(varargin);
             
-            % Separate box and nonlinear (could be linear, but not box) 
+            % Separate box and nonlinear (could be linear, but not box)
             % constraints.
             [box, nl_con] = constraints.split.sort("first", ...
                 @yop.nonlinear_programming.isa_box, ...
@@ -163,7 +163,7 @@ classdef nonlinear_programming < yop.relation
                 
             end
         end
-                
-    end
         
+    end
+    
 end

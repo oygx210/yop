@@ -45,38 +45,30 @@ classdef nonlinear_program < handle
         
         function obj = subject_to(obj, varargin)
             
-            for k=1:length(varargin)
-                varargin{k} = yop.nlp_constraint(varargin{k});
-            end
-            
-            [box, eq, ieq] = yop.nlp_constraint.classify(varargin{:});
+            [box, eq, ieq] = vertcat(varargin{:}).classify();
             obj.add_box(box);
             
-            if isempty(eq.elements)
-                obj.equality_constraints = yop.node('empty', [0,0]);
-            else
-                obj.equality_constraints = vertcat(eq.left.elements.object);
+            if ~isempty(eq)
+                obj.equality_constraints = eq.left.evaluate;
             end
             
-            if isempty(ieq.elements)
-                obj.inequality_constraints = yop.node('empty', [0,0]);
-            else
-                obj.inequality_constraints = vertcat(ieq.left.elements.object);
+            if ~isempty(ieq)
+                obj.inequality_constraints = ieq.left.evaluate;
             end
         end
         
         function obj = add_box(obj, box)
             for k=1:length(box)
-                index = box.object(k).get_indices();
-                bd = box.object(k).get_bound;
+                index = box(k).get_indices();
+                bd = box(k).get_bound;
                 
-                if box.object(k).isa_upper_bound
+                if box(k).isa_upper_bound
                     obj.upper_bound(index) = bd;
                     
-                elseif box.object(k).isa_lower_bound
+                elseif box(k).isa_lower_bound
                     obj.lower_bound(index) = bd;
                     
-                elseif box.object(k).isa_equality  
+                elseif box(k).isa_equality  
                     obj.upper_bound(index) = bd;
                     obj.lower_bound(index) = bd;
                 end
@@ -94,8 +86,8 @@ classdef nonlinear_program < handle
             nlp.x = obj.variable.evaluate;
             nlp.f = obj.objective.evaluate;
             nlp.g = [...
-                obj.equality_constraints.evaluate; ...
-                obj.inequality_constraints.evaluate ...
+                obj.equality_constraints; ...
+                obj.inequality_constraints ...
                 ];
             
             yoptimizer = casadi.nlpsol('yoptimizer', 'ipopt', nlp);

@@ -3,8 +3,15 @@ classdef nlp_constraint < yop.relation
     methods
         
         function obj = nlp_constraint(relation)
-            obj@yop.relation(relation.name, relation.size, relation.operation);
-            prop = properties(obj);
+            obj@yop.relation();
+            if nargin == 1
+                obj.init(relation);
+            end
+        end
+        
+        function obj = init(obj, relation)
+            obj.init@yop.relation(relation.name, relation.size, relation.operation);
+            prop = properties(relation);
             for k = 1:length(prop)
                 obj.(prop{k}) = relation.(prop{k});
             end
@@ -144,19 +151,13 @@ classdef nlp_constraint < yop.relation
             end
         end
         
-    end
-    
-    methods (Static)
-        function [box, equality, inequality] = classify(varargin)
-            % Classify the relations in varargin into box constraints,
+       function [box, equality, inequality] = classify(obj)
+            % Classify the relations in obj into box constraints,
             % equality constraints, and inequality constraints.
-            
-            % Store all constraints in a list
-            constraints = yop.node_list().add_array(varargin);
             
             % Separate box and nonlinear (could be linear, but not box) 
             % constraints.
-            [box, nl_con] = constraints.split.sort("first", ...
+            [box, nl_con] = obj.split.convert_to_nlp_constraint.sort("first", ...
                 @isa_box, ...
                 @isa_valid_relation ...
                 );
@@ -167,7 +168,28 @@ classdef nlp_constraint < yop.relation
                 @(x)isequal(x.operation, @eq), ...
                 @(x)isequal(x.operation, @le));
             
+       end
+       
+       function varargout = sort(obj, mode, varargin)
+            varargout = cell(size(varargin));
+            for n=1:length(varargout)
+                varargout{n} = yop.nlp_constraint();
+            end
+            
+            for k=1:length(obj)
+                for c=1:length(varargin)
+                    criteria = varargin{c};
+                    if criteria(obj.object(k))                        
+                        varargout{c}(end+1) = obj.object(k);
+                        if mode=="first"
+                            break
+                        end
+                    end
+                end
+            end
+            
         end
+       
     end
     
 end

@@ -9,9 +9,6 @@ classdef ocp < handle
         control
         parameter
         
-        % function calls
-        arguments
-        
         % Objective and constraints
         objective
         objective_function
@@ -43,51 +40,39 @@ classdef ocp < handle
             
             ip.parse(varargin{:});
             
-            obj.independent         = ip.Results.(yop.default().independent_name);
-            obj.independent_initial = ip.Results.(yop.default().independent_initial_name);
-            obj.independent_final   = ip.Results.(yop.default().independent_final_name);
-            obj.state               = ip.Results.(yop.default().state_name);
-            obj.algebraic           = ip.Results.(yop.default().algebraic_name);
-            obj.control             = ip.Results.(yop.default().control_name);
-            parameter               = ip.Results.(yop.default().parameter_name);
+            obj.independent.variable         = ip.Results.(yop.default().independent_name);
+            obj.independent_initial.variable = ip.Results.(yop.default().independent_initial_name);
+            obj.independent_final.variable   = ip.Results.(yop.default().independent_final_name);
+            obj.state.variable               = ip.Results.(yop.default().state_name);
+            obj.algebraic.variable           = ip.Results.(yop.default().algebraic_name);
+            obj.control.variable             = ip.Results.(yop.default().control_name);
+            obj.parameter.variable           = ip.Results.(yop.default().parameter_name);
             
-            % parameters
-            if isa(obj.independent_final, 'yop.parameter')
-                parameter = [obj.independent_final; parameter];
-            end
+            obj.independent_initial.upper_bound = inf;
+            obj.independent_initial.lower_bound = -inf;
             
-            if isa(obj.independent_initial, 'yop.parameter')
-                parameter = [obj.independent_initial; parameter];
-            end
-            obj.parameter = parameter;
+            obj.independent_final.upper_bound = inf;
+            obj.independent_final.lower_bound = -inf;
             
+            obj.state.upper_bound = inf(size(obj.state.variable));
+            obj.state.lower_bound = -inf(size(obj.state.variable));
+            obj.state.initial_upper_bound = inf(size(obj.state.variable));
+            obj.state.initial_lower_bound = -inf(size(obj.state.variable));
+            obj.state.final_upper_bound = inf(size(obj.state.variable));
+            obj.state.final_lower_bound = -inf(size(obj.state.variable));
             
-            % Function input arguments.
-            % Överväg att flytta eftersom de skulle kunna hemmahöra i
-            % transkriptorn
-            arguments = {};
+            obj.algebraic.upper_bound = inf(size(obj.algebraic.variable));
+            obj.algebraic.lower_bound = -inf(size(obj.algebraic.variable));
             
-            if ~isempty(obj.independent)
-                arguments = [arguments(:); {obj.independent.evaluate}];
-            end
+            obj.control.upper_bound = inf(size(obj.control.variable));
+            obj.control.lower_bound = -inf(size(obj.control.variable));
+            obj.control.initial_upper_bound = inf(size(obj.control.variable));
+            obj.control.initial_lower_bound = -inf(size(obj.control.variable));
+            obj.control.final_upper_bound = inf(size(obj.control.variable));
+            obj.control.final_lower_bound = -inf(size(obj.control.variable));
             
-            if ~isempty(obj.state)
-                arguments = [arguments(:); {obj.state.evaluate}];
-            end
-            
-            if ~isempty(obj.algebraic)
-                arguments = [arguments(:); {obj.algebraic.evaluate}];
-            end
-            
-            if ~isempty(obj.control)
-                arguments = [arguments(:); {obj.control.evaluate}];
-            end
-            
-            if ~isempty(obj.parameter)
-                arguments = [arguments(:); {obj.parameter.evaluate}];
-            end
-            
-            obj.arguments = arguments;
+            obj.parameter.upper_bound = inf(size(obj.parameter.variable));
+            obj.parameter.lower_bound = -inf(size(obj.parameter.variable));
             
         end
         
@@ -104,10 +89,6 @@ classdef ocp < handle
         function obj = subject_to(obj, varargin)
             obj.constraints = varargin;
         end
-        
-    end
-    
-    methods
         
         function n_x = states(obj)
             n_x = length(obj.state);

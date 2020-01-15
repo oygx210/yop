@@ -1,4 +1,4 @@
-classdef node < handle
+classdef node < handle & matlab.mixin.Copyable
     % NODE A class for creating nodes in computational graphs.
     %    Node is the basic building block for creating computaional grapwhs
     %    in Yop. The computional graphs are used for formulating
@@ -206,31 +206,39 @@ classdef node < handle
             % obj = yop.node(name, rows)
             % obj = yop.node(name, rows, columns)
             
-            if nargin == 1
+            if nargin == 0
+                % Empty init
+            
+            elseif nargin == 1
                 rows = yop.default().node_rows;
                 columns = yop.default().node_columns;
+                obj.init(name, rows, columns);
                 
             elseif nargin == 2
                 if isequal(size(varargin{1}), [1,2])
                     rows = varargin{1}(1);
                     columns = varargin{1}(2);
+                    obj.init(name, rows, columns);
                     
                 else
                     rows = varargin{1};
                     columns = yop.default().node_columns;
+                    obj.init(name, rows, columns);
                     
                 end
                 
             elseif nargin == 3
                 rows = varargin{1};
                 columns = varargin{2};
-                
+                obj.init(name, rows, columns);                
                 
             else
                 yop.assert(false);
                 
             end
-            
+        end
+        
+        function obj = init(obj, name, rows, columns)
             obj.name = name;
             obj.rows = rows;
             obj.columns = columns;
@@ -443,20 +451,7 @@ classdef node < handle
                 case '()'
                     if isnumeric(s(1).subs{1}) || strcmp(s(1).subs{1}, ':')
                         % Implements obj(index)
-                        
-                        tmp = ones(size(x));
-                        tmp = tmp(builtin('subsref', tmp, s(1)));
-                        
-                        txt = [x.name '(' num2str(s(1).subs{1}) ')'];
-                        y = yop.subs_operation(txt, size(tmp), @subsref);
-                        
-                        s_yop = yop.constant('s', [1, 1]);
-                        s_yop.value = s(1);
-                        
-                        y.add_child(x);
-                        y.add_child(s_yop);
-                        x.add_parent(y);
-                        s_yop.add_parent(y);
+                        y = subsref_object_index(x, s);
                         
                         if length(s) > 1
                             y = subsref(y, s(2:end));
@@ -464,13 +459,7 @@ classdef node < handle
                         
                     elseif isa(s(1).subs{1}, 'yop.node')
                         % Implements obj(t), obj(t==1), obj(1==t)
-                                           
-                        % Logik för timepoints:
-                        % Antingen är det en:
-                        %   1. yop.parameter
-                        %   2. numeric
-                        %   3. yop.variable = yop.constant/yop.parameter
-                        x.timepoint = yop.timepoint(s(1).subs{1});
+                        x.timepoint = yop.node.get_timepoint(s(1).subs{1});
                         y = x;
                         
                         if length(s) > 1
@@ -488,36 +477,25 @@ classdef node < handle
                 otherwise
                     error('Not a valid indexing expression')
             end
-            
-            % Ta hand om nästa nivå.
-            % Om det finns rest ska enbart det första i varargout ges som
-            % input. Om ingen rest finns ska allt returneras.
         end
         
+        function y = subsref_object_index(x, s)
+            % Implements obj(index)
+            tmp = ones(size(x));
+            tmp = tmp(builtin('subsref', tmp, s(1)));
+            
+            txt = [x.name '(' num2str(s(1).subs{1}) ')'];
+            y = yop.subs_operation(txt, size(tmp), @subsref);
+            
+            s_yop = yop.constant('s', [1, 1]);
+            s_yop.value = s(1);
+            
+            y.add_child(x);
+            y.add_child(s_yop);
+            x.add_parent(y);
+            s_yop.add_parent(y);
+        end
         
-        %         function y = subsref(x, s)
-        %             if s(1).type == "()" && (isnumeric(s(1).subs{1}) || strcmp(s(1).subs{1},':'))
-        %                 tmp = ones(size(x));
-        %                 tmp = tmp(builtin('subsref', tmp, s));
-        %
-        %                 txt = [x.name '(' num2str(s(1).subs{1}) ')'];
-        %                 y = yop.subs_operation(txt, size(tmp), @subsref);
-        %
-        %                 s_yop = yop.constant('s', [1, 1]);
-        %                 s_yop.value = s(1);
-        %
-        %                 y.add_child(x);
-        %                 y.add_child(s_yop);
-        %                 x.add_parent(y);
-        %                 s_yop.add_parent(y);
-        %
-        %                 if length(s) > 1
-        %                     y = subsref(y, s(2:end));
-        %                 end
-        %             else
-        %                 y = builtin('subsref', x, s);
-        %             end
-        %         end
         
         function z = subsasgn(x, s, y)
             % SUBSASGN Assign to subelement. Overloaded when assigning to
@@ -537,7 +515,7 @@ classdef node < handle
                 s_yop.add_parent(z);
                 y.add_parent(z);
             else
-                z = builtin('subsasgn',x, s, y);
+                z = builtin('subsasgn', x, s, y);
             end
         end
         
@@ -966,8 +944,8 @@ classdef node < handle
                 rhs.value = tmp;
             end
             
-            cond = size(lhs,1)==size(rhs,1)&&size(lhs,2)==size(rhs,2);
-            yop.assert(cond, yop.messages.incompatible_size('<', lhs, rhs));
+            %cond = size(lhs,1)==size(rhs,1)&&size(lhs,2)==size(rhs,2);
+            %yop.assert(cond, yop.messages.incompatible_size('<', lhs, rhs));
             
             r = yop.relation('<', size(lhs), @lt);
             r.add_child(lhs);
@@ -987,8 +965,8 @@ classdef node < handle
                 rhs.value = tmp;
             end
             
-            cond = size(lhs,1)==size(rhs,1)&&size(lhs,2)==size(rhs,2);
-            yop.assert(cond, yop.messages.incompatible_size('>', lhs, rhs));
+            %cond = size(lhs,1)==size(rhs,1)&&size(lhs,2)==size(rhs,2);
+            %yop.assert(cond, yop.messages.incompatible_size('>', lhs, rhs));
             
             r = yop.relation('>', size(lhs), @gt);
             r.add_child(lhs);
@@ -1008,8 +986,8 @@ classdef node < handle
                 rhs.value = tmp;
             end
             
-            cond = size(lhs,1)==size(rhs,1)&&size(lhs,2)==size(rhs,2);
-            yop.assert(cond, yop.messages.incompatible_size('<=', lhs, rhs));
+            %cond = size(lhs,1)==size(rhs,1)&&size(lhs,2)==size(rhs,2);
+            %yop.assert(cond, yop.messages.incompatible_size('<=', lhs, rhs));
             
             r = yop.relation('<=', size(lhs), @le);
             r.add_child(lhs);
@@ -1029,8 +1007,8 @@ classdef node < handle
                 rhs.value = tmp;
             end
             
-            cond = size(lhs,1)==size(rhs,1)&&size(lhs,2)==size(rhs,2);
-            yop.assert(cond, yop.messages.incompatible_size('>=', lhs, rhs));
+            %cond = size(lhs,1)==size(rhs,1)&&size(lhs,2)==size(rhs,2);
+            %yop.assert(cond, yop.messages.incompatible_size('>=', lhs, rhs));
             
             r = yop.relation('>=', size(lhs), @ge);
             r.add_child(lhs);
@@ -1050,8 +1028,8 @@ classdef node < handle
                 rhs.value = tmp;
             end
             
-            cond = size(lhs,1)==size(rhs,1)&&size(lhs,2)==size(rhs,2);
-            yop.assert(cond, yop.messages.incompatible_size('~=', lhs, rhs));
+            %cond = size(lhs,1)==size(rhs,1)&&size(lhs,2)==size(rhs,2);
+            %yop.assert(cond, yop.messages.incompatible_size('~=', lhs, rhs));
             
             r = yop.relation('~=', size(lhs), @ne);
             r.add_child(lhs);
@@ -1071,8 +1049,8 @@ classdef node < handle
                 rhs.value = tmp;
             end
             
-            cond = size(lhs,1)==size(rhs,1)&&size(lhs,2)==size(rhs,2);
-            yop.assert(cond, yop.messages.incompatible_size('==', lhs, rhs));
+            %cond = size(lhs,1)==size(rhs,1)&&size(lhs,2)==size(rhs,2);
+            %yop.assert(cond, yop.messages.incompatible_size('==', lhs, rhs));
             
             r = yop.relation('==', size(lhs), @eq);
             r.add_child(lhs);
@@ -1102,35 +1080,7 @@ classdef node < handle
         end
         
     end
-    
-    methods
         
-        %         function cp_obj = copy_structure(obj)
-        %             % Copies the structure of an expression graph. It does not
-        %             % copies leafs, but the rest is copied. The primary purpose of
-        %             % this method is that the copied structure is later going to be
-        %             % changed, and then it would be undesirable to change the user
-        %             % object. But since the correct experession given by the user
-        %             % must be maintained leafs are not copied.
-        %
-        %             if obj.isa_leaf() || obj.isa_symbol()
-        %                 cp_obj = obj;
-        %
-        %             else
-        %                 cp_obj = copy(obj);
-        %                 cp_obj.parents = yop.node_listener_list();
-        %                 cp_obj.children = yop.list();
-        %                 for k=1:obj.children.length
-        %                     child_k = copy_structure(obj.child(k));
-        %                     cp_obj.add_child(child_k);
-        %                     child_k.add_parent(cp_obj);
-        %                 end
-        %             end
-        %         end
-        
-    end
-    
-    
     methods (Static)
         
         function v = typecast(v)
@@ -1188,8 +1138,60 @@ classdef node < handle
             recursion(obj);
         end
         
+        
+        function timepoint = get_timepoint(relation)
+            % Logic for timepoints:
+            % It is either a:
+            %   1. yop.parameter
+            %   2. numeric
+            %   3. yop.variable = yop.constant/yop.parameter
+            if isa(relation, 'yop.paramter') || isnumeric(relation)
+                timepoint = relation;
+                
+            elseif isa(relation, 'yop.relation')
+                
+                if isa(relation.left, 'yop.variable')
+                    timepoint = relation.right;
+                    
+                elseif isa(relation.right, 'yop.variable')
+                    timepoint = relation.left;
+                    
+                else
+                    yop.error(yop.messages.invalid_timepoint)
+                    
+                end
+                
+            else
+                yop.error(yop.messages.invalid_timepoint)
+                
+            end
+        end
+        
     end
     
 end
 
+
+%         function cp_obj = copy_structure(obj)
+%             % Copies the structure of an expression graph. It does not
+%             % copies leafs, but the rest is copied. The primary purpose of
+%             % this method is that the copied structure is later going to be
+%             % changed, and then it would be undesirable to change the user
+%             % object. But since the correct experession given by the user
+%             % must be maintained leafs are not copied.
+%
+%             if obj.isa_leaf() || obj.isa_symbol()
+%                 cp_obj = obj;
+%
+%             else
+%                 cp_obj = copy(obj);
+%                 cp_obj.parents = yop.node_listener_list();
+%                 cp_obj.children = yop.list();
+%                 for k=1:obj.children.length
+%                     child_k = copy_structure(obj.child(k));
+%                     cp_obj.add_child(child_k);
+%                     child_k.add_parent(cp_obj);
+%                 end
+%             end
+%         end
 
